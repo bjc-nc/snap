@@ -7,7 +7,7 @@
     written by Jens Mönig
     jens@moenig.org
 
-    Copyright (C) 2014 by Jens Mönig
+    Copyright (C) 2013 by Jens Mönig
 
     This file is part of Snap!.
 
@@ -49,7 +49,7 @@
 
 */
 
-/*global modules, XML_Element, VariableFrame, StageMorph,
+/*global modules, XML_Element, XML_Serializer, VariableFrame, StageMorph,
 SpriteMorph, WatcherMorph, Point, CustomBlockDefinition, Context,
 ReporterBlockMorph, CommandBlockMorph, HatBlockMorph, RingMorph, contains,
 detect, CustomCommandBlockMorph, CustomReporterBlockMorph, Color, List,
@@ -61,7 +61,7 @@ SyntaxElementMorph*/
 
 // Global stuff ////////////////////////////////////////////////////////
 
-modules.store = '2014-Jun-04';
+modules.store = '2013-September-17';
 
 
 // XML_Serializer ///////////////////////////////////////////////////////
@@ -252,7 +252,7 @@ SnapSerializer.uber = XML_Serializer.prototype;
 
 // SnapSerializer constants:
 
-SnapSerializer.prototype.app = 'Snap! 4.0, http://snap.berkeley.edu';
+SnapSerializer.prototype.app = "FREEPLAY";
 
 SnapSerializer.prototype.thumbnailSize = new Point(160, 120);
 
@@ -263,9 +263,7 @@ SnapSerializer.prototype.watcherLabels = {
     getScale: 'size',
     getLastAnswer: 'answer',
     getTimer: 'timer',
-    getCostumeIdx: 'costume #',
-    reportMouseX: 'mouse x',
-    reportMouseY: 'mouse y'
+    getCostumeIdx: 'costume #'
 };
 
 // SnapSerializer instance creation:
@@ -377,18 +375,7 @@ SnapSerializer.prototype.loadProjectModel = function (xmlNode) {
         project.pentrails.src = model.pentrails.contents;
     }
     project.stage.setTempo(model.stage.attributes.tempo);
-    StageMorph.prototype.dimensions = new Point(480, 360);
-    if (model.stage.attributes.width) {
-        StageMorph.prototype.dimensions.x =
-            Math.max(+model.stage.attributes.width, 480);
-    }
-    if (model.stage.attributes.height) {
-        StageMorph.prototype.dimensions.y =
-            Math.max(+model.stage.attributes.height, 180);
-    }
     project.stage.setExtent(StageMorph.prototype.dimensions);
-    SpriteMorph.prototype.useFlatLineEnds =
-        model.stage.attributes.lines === 'flat';
     project.stage.isThreadSafe =
         model.stage.attributes.threadsafe === 'true';
     StageMorph.prototype.enableCodeMapping =
@@ -457,6 +444,8 @@ SnapSerializer.prototype.loadProjectModel = function (xmlNode) {
         }
     });
 
+    this.objects = {};
+
     /* Global Variables */
 
     if (model.globalVariables) {
@@ -465,8 +454,6 @@ SnapSerializer.prototype.loadProjectModel = function (xmlNode) {
             model.globalVariables
         );
     }
-
-    this.objects = {};
 
     /* Watchers */
 
@@ -521,7 +508,7 @@ SnapSerializer.prototype.loadProjectModel = function (xmlNode) {
             ))
         );
         project.stage.add(watcher);
-        watcher.onNextStep = function () {this.currentValue = null; };
+        watcher.update();
 
         // set watcher's contentsMorph's extent if it is showing a list and
         // its monitor dimensions are given
@@ -754,17 +741,12 @@ SnapSerializer.prototype.loadCustomBlocks = function (
         if (inputs) {
             i = -1;
             inputs.children.forEach(function (child) {
-                var options = child.childNamed('options');
                 if (child.tag !== 'input') {
                     return;
                 }
                 i += 1;
-                definition.declarations[names[i]] = [
-                    child.attributes.type,
-                    child.contents,
-                    options ? options.contents : undefined,
-                    child.attributes.readonly === 'true'
-                ];
+                definition.declarations[names[i]]
+                    = [child.attributes.type, child.contents];
             });
         }
 
@@ -1032,7 +1014,7 @@ SnapSerializer.prototype.loadInput = function (model, input, block) {
         input.setColor(this.loadColor(model.contents));
     } else {
         val = this.loadValue(model);
-        if (!isNil(val) && input.setContents) {
+        if (val) {
             input.setContents(this.loadValue(model));
         }
     }
@@ -1302,12 +1284,6 @@ SnapSerializer.prototype.openProject = function (project, ide) {
     ide.createCorral();
     ide.selectSprite(sprite);
     ide.fixLayout();
-
-    // force watchers to update
-    //project.stage.watchers().forEach(function (watcher) {
-    //  watcher.onNextStep = function () {this.currentValue = null;};
-    //})
-
     ide.world().keyboardReceiver = project.stage;
 };
 
@@ -1356,9 +1332,7 @@ StageMorph.prototype.toXML = function (serializer) {
         '<project name="@" app="@" version="@">' +
             '<notes>$</notes>' +
             '<thumbnail>$</thumbnail>' +
-            '<stage name="@" width="@" height="@" ' +
-            'costume="@" tempo="@" threadsafe="@" ' +
-            'lines="@" ' +
+            '<stage name="@" costume="@" tempo="@" threadsafe="@" ' +
             'codify="@" ' +
             'scheduled="@" ~>' +
             '<pentrails>$</pentrails>' +
@@ -1380,12 +1354,9 @@ StageMorph.prototype.toXML = function (serializer) {
         (ide && ide.projectNotes) ? ide.projectNotes : '',
         thumbdata,
         this.name,
-        StageMorph.prototype.dimensions.x,
-        StageMorph.prototype.dimensions.y,
         this.getCostumeIdx(),
         this.getTempo(),
         this.isThreadSafe,
-        SpriteMorph.prototype.useFlatLineEnds ? 'flat' : 'round',
         this.enableCodeMapping,
         StageMorph.prototype.frameRate !== 0,
         this.trailsCanvas.toDataURL('image/png'),
@@ -1507,6 +1478,8 @@ VariableFrame.prototype.toXML = function (serializer) {
         return vars + dta;
     }, '');
 };
+
+
 
 // Watchers
 
@@ -1688,15 +1661,9 @@ CustomBlockDefinition.prototype.toXML = function (serializer) {
         this.codeMapping || '',
         Object.keys(this.declarations).reduce(function (xml, decl) {
                 return xml + serializer.format(
-                    '<input type="@"$>$%</input>',
+                    '<input type="@">$</input>',
                     myself.declarations[decl][0],
-                    myself.declarations[decl][3] ?
-                            ' readonly="true"' : '',
-                    myself.declarations[decl][1],
-                    myself.declarations[decl][2] ?
-                            '<options>' + myself.declarations[decl][2] +
-                                '</options>'
-                                : ''
+                    myself.declarations[decl][1]
                 );
             }, ''),
         this.body ? serializer.store(this.body.expression) : '',

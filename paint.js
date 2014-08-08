@@ -3,12 +3,12 @@
 
     a paint editor for Snap!
     inspired by the Scratch paint editor.
-
+ 
     written by Kartik Chandra
-    Copyright (C) 2014 by Kartik Chandra
-
+    Copyright (C) 2013 by Kartik Chandra
+  
     This file is part of Snap!.
-
+ 
     Snap! is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
     published by the Free Software Foundation, either version 3 of
@@ -50,11 +50,6 @@
     May 16 - flat design adjustments (Jens)
     July 12 - pipette tool, code formatting adjustments (Jens)
     September 16 - flood fill freeze fix (Kartik)
-    Jan 08 - mouse leave dragging fix (Kartik)
-    Feb 11 - dynamically adjust to stage dimensions (Jens)
-    Apr 30 - localizations (Manuel)
-    June 3 - transformations (Kartik)
-    June 4 - tweaks (Jens)
 
  */
 
@@ -63,12 +58,12 @@
  CostumeIconMorph, IDE_Morph, Costume, SpriteMorph, nop, Image, WardrobeMorph,
  TurtleIconMorph, localize, MenuMorph, InputFieldMorph, SliderMorph,
  ToggleMorph, ToggleButtonMorph, BoxMorph, modules, radians,
- MorphicPreferences, getDocumentPositionOf, StageMorph
+ MorphicPreferences, getDocumentPositionOf
  */
 
 // Global stuff ////////////////////////////////////////////////////////
 
-modules.paint = '2014-June-4';
+modules.paint = '2013-September-16';
 
 // Declarations
 
@@ -110,13 +105,13 @@ PaintEditorMorph.prototype.buildContents = function () {
     var myself = this;
 
     this.paper = new PaintCanvasMorph(function () {return myself.shift; });
-    this.paper.setExtent(StageMorph.prototype.dimensions);
+    this.paper.setExtent(new Point(480, 360));
 
     this.addBody(new AlignmentMorph('row', this.padding));
-    this.controls = new AlignmentMorph('column', this.padding / 2);
+    this.controls = new AlignmentMorph('column', this.padding);
     this.controls.alignment = 'left';
 
-    this.edits = new AlignmentMorph('row', this.padding / 2);
+    this.edits = new AlignmentMorph('row', this.padding);
     this.buildEdits();
     this.controls.add(this.edits);
 
@@ -134,10 +129,6 @@ PaintEditorMorph.prototype.buildContents = function () {
 
     this.buildToolbox();
     this.controls.add(this.toolbox);
-
-    this.scaleBox = new AlignmentMorph('row', this.padding / 2);
-    this.buildScaleBox();
-    this.controls.add(this.scaleBox);
 
     this.propertiesControls = {
         colorpicker: null,
@@ -222,27 +213,6 @@ PaintEditorMorph.prototype.buildEdits = function () {
         function () {paper.clearCanvas(); }
     ));
     this.edits.fixLayout();
-};
-
-PaintEditorMorph.prototype.buildScaleBox = function () {
-    var paper = this.paper;
-    this.scaleBox.add(this.pushButton(
-        "grow",
-        function () {paper.scale(0.05, 0.05); }
-    ));
-    this.scaleBox.add(this.pushButton(
-        "shrink",
-        function () {paper.scale(-0.05, -0.05); }
-    ));
-    this.scaleBox.add(this.pushButton(
-        "flip ↔",
-        function () {paper.scale(-2, 0); }
-    ));
-    this.scaleBox.add(this.pushButton(
-        "flip ↕",
-        function () {paper.scale(0, -2); }
-    ));
-    this.scaleBox.fixLayout();
 };
 
 PaintEditorMorph.prototype.openIn = function (world, oldim, oldrc, callback) {
@@ -400,7 +370,7 @@ PaintEditorMorph.prototype.populatePropertiesMenu = function () {
     c.add(pc.colorpicker);
     //c.add(pc.primaryColorButton);
     c.add(pc.primaryColorViewer);
-    c.add(new TextMorph(localize("Brush size")));
+    c.add(new TextMorph("Brush size"));
     c.add(alpen);
     c.add(pc.constrain);
 };
@@ -585,26 +555,6 @@ PaintCanvasMorph.prototype.init = function (shift) {
     this.buildContents();
 };
 
-PaintCanvasMorph.prototype.scale = function (x, y) {
-    this.mask = newCanvas(this.extent());
-    var c = newCanvas(this.extent());
-    c.getContext("2d").save();
-    c.getContext("2d").translate(
-        this.rotationCenter.x,
-        this.rotationCenter.y
-    );
-    c.getContext("2d").scale(1 + x, 1 + y);
-    c.getContext("2d").drawImage(
-        this.paper,
-        -this.rotationCenter.x,
-        -this.rotationCenter.y
-    );
-    c.getContext("2d").restore();
-    this.paper = c;
-    this.drawNew();
-    this.changed();
-};
-
 PaintCanvasMorph.prototype.cacheUndo = function () {
     var cachecan = newCanvas(this.extent());
     this.merge(this.paper, cachecan);
@@ -742,11 +692,11 @@ PaintCanvasMorph.prototype.floodfill = function (sourcepoint) {
     while (stack.length > 0) {
         currentpoint = stack.pop();
         if (checkpoint(read(currentpoint))) {
-            if (currentpoint % width > 1) {
+            if (currentpoint % 480 > 1) {
                 stack.push(currentpoint + 1);
                 stack.push(currentpoint - 1);
             }
-            if (currentpoint > 0 && currentpoint < height * width) {
+            if (currentpoint > 0 && currentpoint < 360 * 480) {
                 stack.push(currentpoint + width);
                 stack.push(currentpoint - width);
             }
@@ -799,9 +749,7 @@ PaintCanvasMorph.prototype.mouseMove = function (pos) {
         q = relpos.y,               // current drag y
         w = (p - x) / 2,            // half the rect width
         h = (q - y) / 2,            // half the rect height
-        i,                          // iterator number
-        width = this.paper.width;
-
+        i;                          // iterator number
     mctx.save();
     function newW() {
         return Math.max(Math.abs(w), Math.abs(h)) * (w / Math.abs(w));
@@ -876,7 +824,7 @@ PaintCanvasMorph.prototype.mouseMove = function (pos) {
                 false
             );
         } else {
-            for (i = 0; i < width; i += 1) {
+            for (i = 0; i < 480; i += 1) {
                 mctx.lineTo(
                     i,
                     (2 * h) * Math.sqrt(2 - Math.pow(
@@ -885,7 +833,7 @@ PaintCanvasMorph.prototype.mouseMove = function (pos) {
                     )) + y
                 );
             }
-            for (i = width; i > 0; i -= 1) {
+            for (i = 480; i > 0; i -= 1) {
                 mctx.lineTo(
                     i,
                     -1 * (2 * h) * Math.sqrt(2 - Math.pow(
@@ -937,9 +885,6 @@ PaintCanvasMorph.prototype.mouseClickLeft = function () {
     }
     this.brushBuffer = [];
 };
-
-PaintCanvasMorph.prototype.mouseLeaveDragging
-    = PaintCanvasMorph.prototype.mouseClickLeft;
 
 PaintCanvasMorph.prototype.buildContents = function () {
     this.background = newCanvas(this.extent());

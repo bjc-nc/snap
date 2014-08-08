@@ -6,7 +6,7 @@
 
     written by Jens Mönig
 
-    Copyright (C) 2014 by Jens Mönig
+    Copyright (C) 2013 by Jens Mönig
 
     This file is part of Snap!.
 
@@ -27,10 +27,9 @@
 
 // Global settings /////////////////////////////////////////////////////
 
-/*global modules, IDE_Morph, SnapSerializer, hex_sha512, alert, nop,
-localize*/
+/*global modules, IDE_Morph, SnapSerializer, hex_sha512, alert, nop*/
 
-modules.cloud = '2014-May-26';
+modules.cloud = '2013-October-10';
 
 // Global stuff
 
@@ -38,6 +37,9 @@ var Cloud;
 
 var SnapCloud = new Cloud(
     'https://snapcloud.miosoft.com/miocon/app/login?_app=SnapCloud'
+    //'192.168.2.110:8087/miocon/app/login?_app=SnapCloud'
+    //'192.168.186.167:8087/miocon/app/login?_app=SnapCloud'
+    // 'localhost/miocon/app/login?_app=SnapCloud'
 );
 
 // Cloud /////////////////////////////////////////////////////////////
@@ -80,7 +82,7 @@ Cloud.prototype.signup = function (
                 + '&Username='
                 + encodeURIComponent(username)
                 + '&Email='
-                + encodeURIComponent(email),
+                + email,
             true
         );
         request.setRequestHeader(
@@ -108,7 +110,7 @@ Cloud.prototype.signup = function (
                     errorCall.call(
                         null,
                         myself.url + 'SignUp',
-                        localize('could not connect to:')
+                        'could not connect to:'
                     );
                 }
             }
@@ -165,7 +167,7 @@ Cloud.prototype.getPublicProject = function (
                     errorCall.call(
                         null,
                         myself.url + 'Public',
-                        localize('could not connect to:')
+                        'could not connect to:'
                     );
                 }
             }
@@ -218,7 +220,7 @@ Cloud.prototype.resetPassword = function (
                     errorCall.call(
                         null,
                         myself.url + 'ResetPW',
-                        localize('could not connect to:')
+                        'could not connect to:'
                     );
                 }
             }
@@ -265,7 +267,7 @@ Cloud.prototype.connect = function (
                     errorCall.call(
                         null,
                         myself.url,
-                        localize('could not connect to:')
+                        'could not connect to:'
                     );
                 }
             }
@@ -382,13 +384,7 @@ Cloud.prototype.saveProject = function (ide, callBack, errorCall) {
                     ide.hasChangedMedia = false;
                 },
                 errorCall,
-                [
-                    ide.projectName,
-                    pdata,
-                    media,
-                    pdata.length,
-                    media ? media.length : 0
-                ]
+                [ide.projectName, pdata, media]
             );
         },
         errorCall
@@ -534,7 +530,7 @@ Cloud.prototype.callService = function (
                     errorCall.call(
                         this,
                         request.responseText,
-                        localize('Service:') + ' ' + localize(serviceName)
+                        'Service: ' + serviceName
                     );
                     return;
                 }
